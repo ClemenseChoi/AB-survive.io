@@ -8,7 +8,7 @@ const LATE_JOIN = 40;      // 매치 시작 후 이 시간(초) 안에 들어오
 const END_DELAY = 7;       // 매치 종료 후 다음 판까지
 const M = S.MAP_SIZE;
 // [대기 시간, 줄어드는 시간, 목표 반지름, 초당 피해]
-const ZONE_PHASES = [[45, 30, 1300, 1.5], [35, 25, 800, 3], [30, 20, 450, 5], [25, 20, 220, 8], [20, 15, 80, 12], [15, 15, 0, 20]];
+const ZONE_PHASES = [[55, 40, 1950, 1.5], [40, 30, 1200, 3], [35, 25, 675, 5], [30, 20, 330, 8], [20, 15, 120, 12], [15, 15, 0, 20]];
 const BOT_NAMES = ['감자총잡이', '숲속저격수', 'NoScope', '붕대장인', '치킨러버', '도토리', 'Ghost', '고양이', 'Pixel', '루키', '레드존', '탱크', '번개', 'Mango', 'Viper', '나무뒤', '판다', 'Nova', '하루', 'Blitz', '짱돌', 'Kiwi', '조약돌', 'Echo', '여우', 'Sparrow', '호랑이', 'Comet', '우주인', 'Duck'];
 const AMMO_KEYS = Object.keys(S.AMMO);
 const r1 = (v) => Math.round(v * 10) / 10;
@@ -273,7 +273,7 @@ class Room {
     const w = S.WEAPONS[g.type];
     const moving = p.keys !== 0;
     for (let k = 0; k < w.pellets; k++) {
-      const a = p.angle + (Math.random() * 2 - 1) * w.spread * (moving ? 1.4 : 1);
+      const a = p.angle + (Math.random() * 2 - 1) * w.spread * (moving ? 1.15 : 1);
       const b = {
         id: this.nextBullet++, owner: p.id, x: p.x, y: p.y, ox: p.x, oy: p.y, dx: Math.cos(a), dy: Math.sin(a), a,
         speed: w.speed, dist: 0, max: w.range * (0.92 + Math.random() * 0.08), dmg: w.dmg, wname: w.name,

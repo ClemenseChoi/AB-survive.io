@@ -49,7 +49,7 @@ function generate(seed) {
     buildings.some((b) => x > b.x - pad && x < b.x + b.w + pad && y > b.y - pad && y < b.y + b.h + pad);
 
   // 건물
-  for (let tries = 0; buildings.length < 9 && tries < 400; tries++) {
+  for (let tries = 0; buildings.length < 18 && tries < 1500; tries++) {
     const w = 300 + Math.floor(rng() * 140), h = 240 + Math.floor(rng() * 120);
     const x = 200 + rng() * (M - 400 - w), y = 200 + rng() * (M - 400 - h);
     if (buildings.some((b) => x < b.x + b.w + 160 && x + w + 160 > b.x && y < b.y + b.h + 160 && y + h + 160 > b.y)) continue;
@@ -98,14 +98,14 @@ function generate(seed) {
       i++;
     }
   }
-  scatter(115, 30, (x, y) => ({ id: oid++, kind: 'tree', shape: 'c', x, y, cr: 22, vr: 52 + rng() * 14, hp: 180, maxHp: 180, solid: true, blocksShots: true }));
-  scatter(55, 46, (x, y) => { const cr = 32 + rng() * 18; return { id: oid++, kind: 'rock', shape: 'c', x, y, cr, hp: 350, maxHp: 350, solid: true, blocksShots: true }; });
-  scatter(60, 46, (x, y) => makeCrate(oid++, x - 32, y - 32));
-  scatter(30, 30, (x, y) => ({ id: oid++, kind: 'barrel', shape: 'c', x, y, cr: 26, hp: 60, maxHp: 60, solid: true, blocksShots: true }));
-  scatter(60, 46, (x, y) => ({ id: oid++, kind: 'bush', shape: 'c', x, y, cr: 46, hp: 80, maxHp: 80, solid: false, blocksShots: false }));
+  scatter(260, 30, (x, y) => ({ id: oid++, kind: 'tree', shape: 'c', x, y, cr: 22, vr: 52 + rng() * 14, hp: 180, maxHp: 180, solid: true, blocksShots: true }));
+  scatter(125, 46, (x, y) => { const cr = 32 + rng() * 18; return { id: oid++, kind: 'rock', shape: 'c', x, y, cr, hp: 350, maxHp: 350, solid: true, blocksShots: true }; });
+  scatter(135, 46, (x, y) => makeCrate(oid++, x - 32, y - 32));
+  scatter(65, 30, (x, y) => ({ id: oid++, kind: 'barrel', shape: 'c', x, y, cr: 26, hp: 60, maxHp: 60, solid: true, blocksShots: true }));
+  scatter(135, 46, (x, y) => ({ id: oid++, kind: 'bush', shape: 'c', x, y, cr: 46, hp: 80, maxHp: 80, solid: false, blocksShots: false }));
 
   // 바닥 아이템
-  for (let i = 0, tries = 0; i < 110 && tries < 3000; tries++) {
+  for (let i = 0, tries = 0; i < 250 && tries < 8000; tries++) {
     const x = 60 + rng() * (M - 120), y = 60 + rng() * (M - 120);
     if (overlapsBuilding(x, y, 20) || placed.some((p) => (p.x - x) ** 2 + (p.y - y) ** 2 < (p.r + 30) ** 2)) continue;
     for (const t of lootBundle(rng)) loot.push({ type: t, x: x + (rng() - 0.5) * 50, y: y + (rng() - 0.5) * 50 });

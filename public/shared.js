@@ -3,7 +3,7 @@
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.Shared = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
-  const MAP_SIZE = 3200;
+  const MAP_SIZE = 4800; // 맵 한 변 길이 (기존 3200 → 4800, 면적 2.25배)
   const PLAYER_R = 22;
   const BASE_SPEED = 250;
   const TICK_RATE = 30;
@@ -15,11 +15,11 @@
 
   const WEAPONS = {
     fists: { name: '주먹', melee: true, dmg: 24, range: 34, cd: 0.32 },
-    m9:    { name: 'M9',    ammo: '9mm', dmg: 12, cd: 0.14, spread: 0.05,  speed: 1700, range: 750,  mag: 15, reload: 1.5, auto: false, pellets: 1, len: 26 },
-    mp5:   { name: 'MP5',   ammo: '9mm', dmg: 9,  cd: 0.075, spread: 0.10, speed: 1800, range: 650,  mag: 30, reload: 2.0, auto: true,  pellets: 1, len: 36 },
-    m870:  { name: 'M870',  ammo: '12g', dmg: 11, cd: 0.85, spread: 0.20,  speed: 1500, range: 430,  mag: 5,  reload: 2.8, auto: false, pellets: 9, len: 44 },
-    ak47:  { name: 'AK-47', ammo: '762', dmg: 14, cd: 0.1,  spread: 0.07,  speed: 2100, range: 950,  mag: 30, reload: 2.4, auto: true,  pellets: 1, len: 46 },
-    mosin: { name: 'Mosin', ammo: '762', dmg: 72, cd: 1.5,  spread: 0.008, speed: 3000, range: 1600, mag: 5,  reload: 3.2, auto: false, pellets: 1, len: 56 },
+    m9:    { name: 'M9',    ammo: '9mm', dmg: 12, cd: 0.14, spread: 0.025,  speed: 1700, range: 750,  mag: 15, reload: 1.5, auto: false, pellets: 1, len: 26 },
+    mp5:   { name: 'MP5',   ammo: '9mm', dmg: 9,  cd: 0.075, spread: 0.05, speed: 1800, range: 650,  mag: 30, reload: 2.0, auto: true,  pellets: 1, len: 36 },
+    m870:  { name: 'M870',  ammo: '12g', dmg: 11, cd: 0.85, spread: 0.14,  speed: 1500, range: 430,  mag: 5,  reload: 2.8, auto: false, pellets: 9, len: 44 },
+    ak47:  { name: 'AK-47', ammo: '762', dmg: 14, cd: 0.1,  spread: 0.035,  speed: 2100, range: 950,  mag: 30, reload: 2.4, auto: true,  pellets: 1, len: 46 },
+    mosin: { name: 'Mosin', ammo: '762', dmg: 72, cd: 1.5,  spread: 0.004, speed: 3000, range: 1600, mag: 5,  reload: 3.2, auto: false, pellets: 1, len: 56 },
   };
   const AMMO = {
     '9mm': { name: '9mm',     color: '#e8b54a', max: 150, pack: 30 },
