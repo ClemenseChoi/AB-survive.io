@@ -14,7 +14,7 @@
     W = window.innerWidth; H = window.innerHeight;
     canvas.width = W * DPR; canvas.height = H * DPR;
   }
-  window.addEventListener('resize', resize); resize();
+  window.addEventListener('resize', resize); window.addEventListener('orientationchange', () => setTimeout(resize, 200)); resize();
 
   // ---------------- 상태 ----------------
   let ws = null, connected = false;
@@ -30,7 +30,10 @@
   const killfeed = [], explosions = [];
   let hurtFlash = 0, lastHp = 100, zoomCur = 1, roofAlpha = [];
   let camX = 0, camY = 0, scale = 1;
-  const input = { keys: 0, mouseX: 0, mouseY: 0, down: false, clicks: 0, angle: 0 };
+  const input = { keys: 0, mouseX: 0, mouseY: 0, down: false, clicks: 0, angle: 0, touchKeys: 0, touchFire: false, touchAngle: 0 };
+  let touchMode = false, UI = 1; // UI: HUD 크기 배율 (작은 화면에서 줄임)
+  const sticks = { move: null, aim: null };
+  const STICK_R = 64;
   let muted = false, ended = false;
 
   // ---------------- 메뉴 ----------------
@@ -155,10 +158,12 @@
   function inputStep() {
     if (!connected || mode !== 'play' || !me || !world || ended) return;
     seq++;
-    ws.send(JSON.stringify({ t: 'i', s: seq, k: input.keys, a: Math.round(input.angle * 1000) / 1000, f: input.down, c: input.clicks }));
+    const keys = input.keys | input.touchKeys;
+    if (input.touchFire) input.clicks++; // 모바일: 조준 스틱을 끝까지 밀면 단발총도 자동 연사
+    ws.send(JSON.stringify({ t: 'i', s: seq, k: keys, a: Math.round(input.angle * 1000) / 1000, f: input.down || input.touchFire, c: input.clicks }));
     prevPred = { x: pred.x, y: pred.y };
-    S.moveStep(pred, input.keys, S.DT, S.speedMul(me.ac, me.bo), world.grid);
-    pending.push({ s: seq, k: input.keys });
+    S.moveStep(pred, keys, S.DT, S.speedMul(me.ac, me.bo), world.grid);
+    pending.push({ s: seq, k: keys });
     if (pending.length > 90) pending.shift();
   }
 
@@ -194,6 +199,65 @@
   });
   window.addEventListener('mouseup', (e) => { if (e.button === 0) input.down = false; });
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  // ---------------- 터치 (모바일/태블릿) ----------------
+  // 왼쪽 화면: 이동 스틱 / 오른쪽 화면: 조준 스틱 (끝까지 밀면 사격)
+  function onTouchStart(e) {
+    e.preventDefault();
+    touchMode = true;
+    if (actx && actx.state === 'suspended') actx.resume();
+    for (const t of e.changedTouches) {
+      const x = t.clientX, y = t.clientY;
+      if (hudClick(x, y)) continue;
+      const st = { id: t.identifier, ox: x, oy: y, x, y };
+      if (x < W / 2) { if (!sticks.move) sticks.move = st; }
+      else if (!sticks.aim) sticks.aim = st;
+    }
+    updateSticks();
+  }
+  function onTouchMove(e) {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      for (const k of ['move', 'aim']) {
+        const st = sticks[k];
+        if (st && st.id === t.identifier) { st.x = t.clientX; st.y = t.clientY; }
+      }
+    }
+    updateSticks();
+  }
+  function onTouchEnd(e) {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      for (const k of ['move', 'aim']) if (sticks[k] && sticks[k].id === t.identifier) sticks[k] = null;
+    }
+    updateSticks();
+  }
+  function updateSticks() {
+    input.touchKeys = 0; input.touchFire = false;
+    const m = sticks.move;
+    if (m) {
+      // 손가락이 너무 멀어지면 스틱 중심이 따라오게
+      let dx = m.x - m.ox, dy = m.y - m.oy, d = Math.hypot(dx, dy);
+      if (d > STICK_R) { m.ox = m.x - (dx / d) * STICK_R; m.oy = m.y - (dy / d) * STICK_R; dx = m.x - m.ox; dy = m.y - m.oy; d = STICK_R; }
+      if (d > 14) {
+        const oct = ((Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) % 8) + 8) % 8;
+        const K = S.KEY;
+        input.touchKeys = [K.RIGHT, K.RIGHT | K.DOWN, K.DOWN, K.DOWN | K.LEFT, K.LEFT, K.LEFT | K.UP, K.UP, K.UP | K.RIGHT][oct];
+      }
+    }
+    const a = sticks.aim;
+    if (a) {
+      let dx = a.x - a.ox, dy = a.y - a.oy, d = Math.hypot(dx, dy);
+      if (d > STICK_R) { a.ox = a.x - (dx / d) * STICK_R; a.oy = a.y - (dy / d) * STICK_R; d = STICK_R; dx = a.x - a.ox; dy = a.y - a.oy; }
+      if (d > 8) input.touchAngle = Math.atan2(dy, dx);
+      input.touchFire = d > STICK_R * 0.6;
+    }
+  }
+  canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+  canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+  canvas.addEventListener('touchend', onTouchEnd, { passive: false });
+  canvas.addEventListener('touchcancel', onTouchEnd, { passive: false });
+  canvas.addEventListener('mousemove', () => { if (touchMode && !sticks.move && !sticks.aim && navigator.maxTouchPoints === 0) touchMode = false; });
   canvas.addEventListener('wheel', (e) => {
     if (!me) return;
     const order = [0, 1, 2].filter((i) => i === 2 || me.g[i]);
@@ -257,6 +321,7 @@
   // ---------------- HUD 클릭 영역 ----------------
   let hudButtons = [];
   function hudClick(x, y) {
+    x /= UI; y /= UI;
     for (const b of hudButtons) if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) { b.fn(); return true; }
     return false;
   }
@@ -300,10 +365,12 @@
     camX = focus.x; camY = focus.y;
     const zoomTarget = S.SCOPE_ZOOM[(me && me.sc) || 1];
     zoomCur += (zoomTarget - zoomCur) * Math.min(1, dt * 4);
-    scale = Math.max(W, H * 16 / 9) / (S.VIEW_W * zoomCur);
+    // 화면 비율과 상관없이 보이는 면적이 같도록 (iPad 4:3, 세로 화면, 16:9 모두 대응)
+    scale = Math.sqrt(W * H) / (S.VIEW_W * 0.75 * zoomCur);
+    UI = Math.max(0.62, Math.min(1, Math.min(W, H) / 720));
 
     // 마우스 조준 각도 (내 캐릭터는 화면 중앙)
-    input.angle = Math.atan2(input.mouseY - H / 2, input.mouseX - W / 2);
+    input.angle = touchMode ? input.touchAngle : Math.atan2(input.mouseY - H / 2, input.mouseX - W / 2);
 
     const vw = W / scale / 2 + 120, vh = H / scale / 2 + 120;
     const x0 = camX - vw, x1 = camX + vw, y0 = camY - vh, y1 = camY + vh;
@@ -546,6 +613,28 @@
       g.addColorStop(0, 'rgba(255,0,0,0)'); g.addColorStop(1, `rgba(200,0,0,${0.45 * hurtFlash})`);
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     }
+    // 터치 스틱
+    for (const k of ['move', 'aim']) {
+      const st = sticks[k];
+      if (!st) continue;
+      ctx.fillStyle = 'rgba(0,0,0,0.25)'; circle(st.ox, st.oy, STICK_R); ctx.fill();
+      ctx.strokeStyle = k === 'aim' && input.touchFire ? 'rgba(255,90,70,0.9)' : 'rgba(255,255,255,0.5)'; ctx.lineWidth = 3;
+      circle(st.ox, st.oy, STICK_R); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.75)'; circle(st.x, st.y, 26); ctx.fill();
+    }
+    if (touchMode && mode === 'play' && !sticks.move && !sticks.aim && me) {
+      ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('← 왼쪽: 이동', W * 0.22, H - 22);
+      ctx.fillText('오른쪽: 조준 · 끝까지 밀면 사격 →', W * 0.72, H * 0.42);
+    }
+    // 아래부터는 UI 배율을 적용한 좌표계 (W, H를 가상 크기로 바꿔서 그림)
+    ctx.setTransform(DPR * UI, 0, 0, DPR * UI, 0, 0);
+    const W0 = W, H0 = H;
+    W = W0 / UI; H = H0 / UI;
+    try { drawHUDInner(players, nowMs); } finally { W = W0; H = H0; }
+  }
+
+  function drawHUDInner(players, nowMs) {
 
     // 좌상단: 생존자, 킬, 핑
     panel(14, 14, 150, 64);
@@ -673,8 +762,16 @@
       hudButtons.push({ x: mx, y: my, w: 150, h: 34, fn: () => action('use', k) });
     });
     my -= 8;
-    panel(W - 16 - 150, my - 26 * 3 - 4, 150, 26 * 3 + 2, 0.4);
-    Object.keys(S.AMMO).reverse().forEach((k) => {
+    if (touchMode) {
+      // 장전 버튼 (무기 슬롯 왼쪽)
+      const rx = W - sw - 16 - 50, ry = H - 16 - 3 * (sh + 6) + sh / 2 + 10, rr = 34;
+      ctx.fillStyle = me.rl ? 'rgba(243,211,107,0.6)' : 'rgba(0,0,0,0.45)'; circle(rx, ry, rr); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2; circle(rx, ry, rr); ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('장전', rx, ry + 5);
+      hudButtons.push({ x: rx - rr, y: ry - rr, w: rr * 2, h: rr * 2, fn: () => action('reload') });
+    }
+    if (!touchMode) panel(W - 16 - 150, my - 26 * 3 - 4, 150, 26 * 3 + 2, 0.4);
+    if (!touchMode) Object.keys(S.AMMO).reverse().forEach((k) => {
       my -= 26;
       const mx = W - 16 - 150;
       ctx.textAlign = 'left'; ctx.font = '13px sans-serif'; ctx.fillStyle = AMMO_COLOR[k];
@@ -689,16 +786,17 @@
     for (const it of items) { const d = (it[2] - pred.x) ** 2 + (it[3] - pred.y) ** 2; if (d < nd) { nd = d; near = it; } }
     if (near) {
       const info = S.itemInfo(near[1]);
-      const txt = `[F] ${info.name}${near[4] > 1 ? ' ×' + near[4] : ''}`;
-      ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center';
-      const tw = ctx.measureText(txt).width;
-      panel(W / 2 - tw / 2 - 12, H / 2 + 90, tw + 24, 30);
-      ctx.fillStyle = '#fff'; ctx.fillText(txt, W / 2, H / 2 + 111);
+      const txt = `${touchMode ? '👆 탭해서 줍기:' : '[F]'} ${info.name}${near[4] > 1 ? ' ×' + near[4] : ''}`;
+      ctx.font = `bold ${touchMode ? 18 : 16}px sans-serif`; ctx.textAlign = 'center';
+      const tw = ctx.measureText(txt).width, bh = touchMode ? 44 : 30;
+      panel(W / 2 - tw / 2 - 14, H / 2 + 90, tw + 28, bh, touchMode ? 0.65 : 0.45);
+      ctx.fillStyle = '#fff'; ctx.fillText(txt, W / 2, H / 2 + 90 + bh / 2 + 6);
+      hudButtons.push({ x: W / 2 - tw / 2 - 14, y: H / 2 + 90, w: tw + 28, h: bh, fn: () => action('pickup') });
     }
   }
 
   function drawMinimap() {
-    const size = Math.min(190, W * 0.22), mx = 14, my = H - size - 14;
+    const size = touchMode ? Math.min(150, W * 0.2) : Math.min(190, W * 0.22), mx = 14, my = touchMode ? 88 : H - size - 14;
     const k = size / S.MAP_SIZE;
     ctx.save();
     panel(mx - 4, my - 4, size + 8, size + 8, 0.55);

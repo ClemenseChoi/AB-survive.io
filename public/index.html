@@ -2,12 +2,17 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Survive 2D — 배틀그라운드</title>
 <style>
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #2b3a22; font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif; color: #fff; user-select: none; }
-  canvas { display: block; width: 100vw; height: 100vh; cursor: crosshair; }
+  html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; touch-action: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; background: #2b3a22; font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif; color: #fff; user-select: none; }
+  canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
+  input { touch-action: manipulation; }
+  .panel { max-height: 92vh; overflow-y: auto; }
   .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(20, 28, 16, 0.55); }
   .hidden { display: none !important; }
   .panel { background: rgba(18, 22, 16, 0.88); border: 2px solid rgba(255, 255, 255, 0.12); border-radius: 14px; padding: 28px 32px; width: min(420px, 92vw); text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.4); }
@@ -44,7 +49,8 @@
       <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 이동 · <b>마우스</b> 조준/사격<br>
       <kbd>F</kbd> 줍기(총 교체) · <kbd>R</kbd> 장전 · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> / 휠 무기 교체 · <kbd>Q</kbd> 이전 무기<br>
       <kbd>7</kbd> 붕대 · <kbd>8</kbd> 구급상자 · <kbd>9</kbd> 에너지 음료 · <kbd>M</kbd> 소리 켜기/끄기<br>
-      탄약·회복템·방어구·스코프는 밟으면 자동으로 주워요.
+      탄약·회복템·방어구·스코프는 밟으면 자동으로 주워요.<br>
+      📱 <b>태블릿/휴대폰</b>: 왼쪽 화면 드래그로 이동, 오른쪽 화면 드래그로 조준(끝까지 밀면 사격). 무기·회복템·장전·줍기는 화면 버튼을 탭하세요.
     </div>
   </div>
 </div>
