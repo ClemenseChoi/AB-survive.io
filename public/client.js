@@ -9,12 +9,26 @@
   const HELMET_COLOR = ['', '#6b8f4e', '#3e6ea8', '#2a2a2a'];
 
   let W = 0, H = 0, DPR = 1;
+  let SAFE = { t: 0, r: 0, b: 0, l: 0 }; // 아이패드/아이폰 화면 가장자리(홈 바 등) 여백
+  const safeProbe = document.getElementById('safe');
+  // 캔버스가 실제로 화면에 그려지는 크기를 그대로 사용해야 늘어나거나 찌그러지지 않는다
+  // (iPad Safari는 주소창·탭바가 접히고 펴지면서 window.innerHeight와 실제 크기가 달라질 수 있음)
   function resize() {
     DPR = Math.min(window.devicePixelRatio || 1, 2);
-    W = window.innerWidth; H = window.innerHeight;
-    canvas.width = W * DPR; canvas.height = H * DPR;
+    const r = canvas.getBoundingClientRect();
+    W = Math.max(1, Math.round(r.width || window.innerWidth));
+    H = Math.max(1, Math.round(r.height || window.innerHeight));
+    canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
+    if (safeProbe) {
+      const cs = getComputedStyle(safeProbe);
+      SAFE = { t: parseFloat(cs.paddingTop) || 0, r: parseFloat(cs.paddingRight) || 0, b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0 };
+    }
   }
-  window.addEventListener('resize', resize); window.addEventListener('orientationchange', () => setTimeout(resize, 200)); resize();
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', () => { resize(); setTimeout(resize, 300); setTimeout(resize, 800); });
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
+  if (window.ResizeObserver) new ResizeObserver(resize).observe(canvas);
+  resize();
 
   // ---------------- 상태 ----------------
   let ws = null, connected = false;
@@ -321,7 +335,7 @@
   // ---------------- HUD 클릭 영역 ----------------
   let hudButtons = [];
   function hudClick(x, y) {
-    x /= UI; y /= UI;
+    x = (x - SAFE.l) / UI; y = (y - SAFE.t) / UI;
     for (const b of hudButtons) if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) { b.fn(); return true; }
     return false;
   }
@@ -329,6 +343,7 @@
   // ---------------- 그리기 ----------------
   let lastFrame = performance.now();
   function frame(now) {
+    if (Math.abs(canvas.clientWidth - W) > 1 || Math.abs(canvas.clientHeight - H) > 1) resize();
     const dt = Math.min(0.1, (now - lastFrame) / 1000);
     lastFrame = now;
     shotsThisFrame = 0;
@@ -628,9 +643,9 @@
       ctx.fillText('오른쪽: 조준 · 끝까지 밀면 사격 →', W * 0.72, H * 0.42);
     }
     // 아래부터는 UI 배율을 적용한 좌표계 (W, H를 가상 크기로 바꿔서 그림)
-    ctx.setTransform(DPR * UI, 0, 0, DPR * UI, 0, 0);
+    ctx.setTransform(DPR * UI, 0, 0, DPR * UI, DPR * SAFE.l, DPR * SAFE.t);
     const W0 = W, H0 = H;
-    W = W0 / UI; H = H0 / UI;
+    W = (W0 - SAFE.l - SAFE.r) / UI; H = (H0 - SAFE.t - SAFE.b) / UI;
     try { drawHUDInner(players, nowMs); } finally { W = W0; H = H0; }
   }
 
