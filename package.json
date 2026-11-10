@@ -9,6 +9,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "pg": "^8.23.1",
     "ws": "^8.22.2"
   },
   "engines": {

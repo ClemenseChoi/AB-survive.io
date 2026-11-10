@@ -2,6 +2,7 @@
 const S = require('../public/shared.js');
 const { generate, lootBundle } = require('./mapgen');
 const { botThink } = require('./bot');
+const db = require('./db');
 
 const BOT_COUNT = process.env.BOTS !== undefined ? +process.env.BOTS : 24;
 const LATE_JOIN = 40;      // 매치 시작 후 이 시간(초) 안에 들어오면 바로 참가
@@ -73,14 +74,14 @@ class Room {
     return { x: M / 2, y: M / 2 };
   }
 
-  addPlayer(name, isBot) {
+  addPlayer(name, isBot, userId) {
     const sp = this.findSpawn();
     const p = {
       id: this.nextPid++, name, isBot, x: sp.x, y: sp.y, angle: 0, hp: 100, boost: 0, alive: true, kills: 0,
       keys: 0, shoot: false, clicks: 0, pendingClicks: 0, queue: [], credit: 0, lastSeq: 0,
       guns: [null, null], cur: 2, lastCur: 2, ammo: { '9mm': 0, '12g': 0, '762': 0 }, meds: { bandage: 0, medkit: 0, soda: 0 },
       helmet: 0, vest: 0, scope: 1, scopes: [1], cd: 0, reload: 0, reloadTotal: 0, action: null, hurtT: 0, punchT: 0,
-      placement: 0,
+      placement: 0, userId: userId || null, joinedAt: this.time,
     };
     this.players.set(p.id, p);
     this.rosterDirty = true;
@@ -90,7 +91,7 @@ class Room {
   joinMatch(c) {
     c.spec = null;
     if (this.state === 'play' && this.time < LATE_JOIN) {
-      const p = this.addPlayer(c.name, false);
+      const p = this.addPlayer(c.name, false, c.userId);
       if (process.env.DEBUG_LOADOUT) { // 테스트용: 시작부터 총 지급
         p.guns = [{ type: 'ak47', mag: 30 }, { type: 'm870', mag: 5 }]; p.cur = 0;
         p.ammo = { '9mm': 60, '12g': 20, '762': 90 }; p.meds.bandage = 5; p.meds.medkit = 1; p.helmet = 2; p.vest = 1; p.scopes = [1, 4]; p.scope = 4;
@@ -136,7 +137,7 @@ class Room {
     });
   }
 
-  roster() { return [...this.players.values()].map((p) => [p.id, p.name, p.isBot ? 1 : 0]); }
+  roster() { return [...this.players.values()].map((p) => [p.id, p.name, p.isBot ? 1 : 0, p.userId ? 1 : 0]); }
 
   // ---------------- 메시지 처리 ----------------
   onMessage(c, m) {
@@ -340,14 +341,22 @@ class Room {
     p.placement = aliveCount + 1;
     if (killer && killer !== p) killer.kills++;
     this.dropAll(p);
+    this.saveResult(p, cause);
     this.globalEv.push({ k: [killer && killer !== p ? killer.name : null, p.name, cause, killer ? killer.id : 0, p.id] });
     const c = this.clientByPid.get(p.id);
     const nextSpec = this.randomAlive(killer && killer.alive ? killer.id : null);
     if (c) {
-      send(c, { t: 'dead', place: p.placement, kills: p.kills, killer: killer && killer !== p ? killer.name : null, cause });
+      send(c, { t: 'dead', place: p.placement, kills: p.kills, killer: killer && killer !== p ? killer.name : null, cause, rec: !!p.userId });
       c.spec = nextSpec;
     }
     for (const cc of this.clients) if (cc.spec === p.id) cc.spec = nextSpec;
+  }
+
+  // 로그인한 플레이어만 전적 저장
+  saveResult(p, cause) {
+    if (!p.userId || p.saved) return;
+    p.saved = true;
+    db.recordMatch(p.userId, { place: p.placement, players: this.players.size, kills: p.kills, seconds: this.time - p.joinedAt, cause });
   }
 
   dropAll(p) {
@@ -539,7 +548,8 @@ class Room {
       this.state = 'ended';
       this.endT = END_DELAY;
       const w = alive.length === 1 ? alive[0] : null;
-      for (const c of this.clients) send(c, { t: 'end', winner: w ? w.name : null, wid: w ? w.id : 0, you: c.pid === (w && w.id) });
+      if (w) { w.placement = 1; this.saveResult(w, '우승'); }
+      for (const c of this.clients) send(c, { t: 'end', winner: w ? w.name : null, wid: w ? w.id : 0, you: c.pid === (w && w.id), rec: !!(w && w.userId && c.pid === w.id) });
       this.broadcast();
     }
   }

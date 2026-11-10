@@ -27,6 +27,20 @@
   .keys { margin-top: 18px; font-size: 13px; line-height: 1.75; opacity: .8; text-align: left; }
   kbd { background: #333; border: 1px solid #555; border-bottom-width: 3px; border-radius: 4px; padding: 0 6px; font-family: inherit; font-size: 12px; }
   .status { margin-top: 12px; font-size: 13px; opacity: .65; }
+  button.small { padding: 9px; font-size: 15px; margin-top: 0; }
+  .acct { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.12); font-size: 14px; }
+  .acct .row { display: flex; gap: 8px; margin-top: 10px; }
+  .acct input { font-size: 15px; padding: 10px; margin-top: 8px; }
+  .acct .err { color: #ff8a7a; min-height: 18px; margin-top: 6px; font-size: 13px; }
+  .acct .who { font-size: 16px; }
+  .acct .who a { color: #aaa; font-size: 13px; margin-left: 8px; }
+  .mini { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 10px 0 2px; }
+  .mini div { background: rgba(255,255,255,.06); border-radius: 8px; padding: 6px 2px; font-size: 12px; opacity: .9; }
+  .mini b { display: block; font-size: 18px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 10px; }
+  th, td { padding: 7px 4px; border-bottom: 1px solid rgba(255,255,255,.08); }
+  th { opacity: .6; font-weight: 600; }
+  tr.meRow td { color: #f3d36b; font-weight: 700; }
   .big { font-size: 44px; font-weight: 800; margin: 6px 0; }
   .gold { color: #f3d36b; }
   .stat { display: flex; justify-content: space-around; margin: 14px 0; font-size: 15px; }
@@ -46,6 +60,25 @@
     <input id="name" maxlength="14" placeholder="닉네임" autocomplete="off">
     <button id="play">게임 시작</button>
     <div class="status" id="status">서버 확인 중…</div>
+    <div id="acctBox" class="acct hidden">
+      <div id="acctOut">
+        <div style="opacity:.75">로그인하면 전적이 저장되고 랭킹에 올라가요</div>
+        <div class="row"><button class="secondary small" id="showLogin">로그인</button><button class="secondary small" id="showReg">회원가입</button></div>
+        <div id="authForm" class="hidden">
+          <input id="uname" placeholder="아이디 (2~12자)" autocomplete="username" maxlength="12">
+          <input id="upass" type="password" placeholder="비밀번호 (4자 이상)" autocomplete="current-password" maxlength="64">
+          <button id="authSubmit" class="small" style="margin-top:8px">로그인</button>
+          <div id="authErr" class="err"></div>
+        </div>
+      </div>
+      <div id="acctIn" class="hidden">
+        <div class="who">👤 <b id="whoName"></b><a href="#" id="logout">로그아웃</a></div>
+        <div class="mini">
+          <div><b id="stGames">0</b>판수</div><div><b id="stWins">0</b>1등</div><div><b id="stKills">0</b>킬</div><div><b id="stBest">-</b>최고 순위</div>
+        </div>
+      </div>
+      <div class="row"><button class="secondary small" id="showRank">🏆 랭킹 보기</button></div>
+    </div>
     <div class="keys">
       <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 이동 · <b>마우스</b> 조준/사격<br>
       <kbd>F</kbd> 줍기(총 교체) · <kbd>R</kbd> 장전 · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> / 휠 무기 교체 · <kbd>Q</kbd> 이전 무기<br>
@@ -56,12 +89,22 @@
   </div>
 </div>
 
+<div id="rank" class="overlay hidden">
+  <div class="panel">
+    <div style="font-size:22px;font-weight:800">🏆 랭킹</div>
+    <div style="opacity:.6;font-size:13px">1등 횟수 → 킬 수 순서</div>
+    <table><thead><tr><th>#</th><th style="text-align:left">아이디</th><th>1등</th><th>킬</th><th>판수</th></tr></thead><tbody id="rankBody"></tbody></table>
+    <button class="secondary" id="closeRank">닫기</button>
+  </div>
+</div>
+
 <div id="dead" class="overlay hidden">
   <div class="panel">
     <div style="opacity:.75">탈락했습니다</div>
     <div class="big" id="deadPlace">#10</div>
     <div class="stat"><div><b id="deadKills">0</b>처치</div><div><b id="deadBy">-</b>사망 원인</div></div>
     <button id="spectate">관전하기</button>
+    <div class="status" id="deadRec"></div>
     <div class="status">이번 판이 끝나면 자동으로 다음 판에 참가합니다.</div>
   </div>
 </div>

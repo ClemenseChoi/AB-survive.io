@@ -52,7 +52,82 @@
 
   // ---------------- 메뉴 ----------------
   try { $('name').value = localStorage.getItem('s2d_name') || ''; } catch (e) { /* 저장소 사용 불가 */ }
-  fetch('/status').then((r) => r.json()).then((s) => { $('status').textContent = `접속 중인 플레이어: ${s.players}명`; }).catch(() => { $('status').textContent = '서버에 연결할 수 없습니다'; });
+  // ---------------- 계정 (로그인 / 전적) ----------------
+  let token = null, authEnabled = false, authMode = 'login', myName = null;
+  try { token = localStorage.getItem('s2d_token'); } catch (e) { /* 저장소 사용 불가 */ }
+  function setToken(t) { token = t; try { t ? localStorage.setItem('s2d_token', t) : localStorage.removeItem('s2d_token'); } catch (e) { /* 무시 */ } }
+  async function api(path, body) {
+    try {
+      const r = await fetch('/api/' + path, {
+        method: body ? 'POST' : 'GET',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, token ? { Authorization: 'Bearer ' + token } : {}),
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const j = await r.json().catch(() => ({}));
+      return Object.assign({ ok: r.ok, status: r.status }, j);
+    } catch (e) { return { ok: false, status: 0, error: '서버에 연결할 수 없어요.' }; }
+  }
+  function showAuthForm(mode) {
+    authMode = mode;
+    $('authForm').classList.remove('hidden');
+    $('authSubmit').textContent = mode === 'login' ? '로그인' : '가입하기';
+    $('upass').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
+    $('authErr').textContent = '';
+    $('uname').focus();
+  }
+  async function refreshAccount() {
+    if (!authEnabled) return;
+    $('acctBox').classList.remove('hidden');
+    const out = () => { myName = null; $('acctOut').classList.remove('hidden'); $('acctIn').classList.add('hidden'); $('name').classList.remove('hidden'); };
+    if (!token) return out();
+    const r = await api('me');
+    if (!r.ok) { if (r.status === 401) setToken(null); return out(); }
+    myName = r.user.username;
+    $('whoName').textContent = myName;
+    const st = r.stats || {};
+    $('stGames').textContent = st.games || 0; $('stWins').textContent = st.wins || 0;
+    $('stKills').textContent = st.kills || 0; $('stBest').textContent = st.best_place ? '#' + st.best_place : '-';
+    $('acctOut').classList.add('hidden'); $('acctIn').classList.remove('hidden');
+    $('name').classList.add('hidden');
+  }
+  async function submitAuth() {
+    const username = $('uname').value.trim(), password = $('upass').value;
+    $('authSubmit').disabled = true;
+    const r = await api(authMode === 'login' ? 'login' : 'register', { username, password });
+    $('authSubmit').disabled = false;
+    if (!r.ok) { $('authErr').textContent = r.error || '실패했어요.'; return; }
+    setToken(r.token);
+    $('upass').value = '';
+    $('authForm').classList.add('hidden');
+    refreshAccount();
+  }
+  $('showLogin').onclick = () => showAuthForm('login');
+  $('showReg').onclick = () => showAuthForm('register');
+  $('authSubmit').onclick = submitAuth;
+  $('upass').addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAuth(); });
+  $('logout').onclick = async (e) => { e.preventDefault(); await api('logout', {}); setToken(null); refreshAccount(); };
+  $('showRank').onclick = async () => {
+    $('rankBody').innerHTML = '<tr><td colspan="5">불러오는 중…</td></tr>';
+    $('rank').classList.remove('hidden');
+    const r = await api('leaderboard');
+    const rows = (r.top || []).map((u, i) => {
+      const tr = document.createElement('tr');
+      if (u.username === myName) tr.className = 'meRow';
+      for (const v of [i + 1, u.username, u.wins, u.kills, u.games]) { const td = document.createElement('td'); td.textContent = v; tr.appendChild(td); }
+      tr.children[1].style.textAlign = 'left';
+      return tr;
+    });
+    $('rankBody').innerHTML = '';
+    if (!rows.length) $('rankBody').innerHTML = '<tr><td colspan="5">아직 기록이 없어요</td></tr>';
+    rows.forEach((tr) => $('rankBody').appendChild(tr));
+  };
+  $('closeRank').onclick = () => $('rank').classList.add('hidden');
+
+  fetch('/status').then((r) => r.json()).then((s) => {
+    $('status').textContent = `접속 중인 플레이어: ${s.players}명`;
+    authEnabled = !!s.auth;
+    refreshAccount();
+  }).catch(() => { $('status').textContent = '서버에 연결할 수 없습니다'; });
   $('play').onclick = start;
   $('name').addEventListener('keydown', (e) => { if (e.key === 'Enter') start(); });
   $('spectate').onclick = () => { $('dead').classList.add('hidden'); mode = 'spectate'; };
@@ -63,7 +138,7 @@
     $('play').disabled = true; $('play').textContent = '연결 중…';
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     ws = new WebSocket(`${proto}://${location.host}/ws`);
-    ws.onopen = () => { connected = true; ws.send(JSON.stringify({ t: 'join', name })); };
+    ws.onopen = () => { connected = true; ws.send(JSON.stringify({ t: 'join', name, token: myName ? token : undefined })); };
     ws.onmessage = (e) => onMessage(JSON.parse(e.data));
     ws.onclose = () => {
       connected = false;
@@ -71,6 +146,7 @@
       $('play').disabled = false; $('play').textContent = '다시 연결';
       $('status').textContent = '서버와 연결이 끊어졌습니다';
       mode = 'menu';
+      refreshAccount();
     };
     initAudio();
   }
@@ -80,18 +156,19 @@
   function onMessage(m) {
     switch (m.t) {
       case 'init': return onInit(m);
-      case 'r': roster.clear(); for (const [id, name, bot] of m.l) roster.set(id, { name, bot }); return;
+      case 'r': roster.clear(); for (const [id, name, bot, acc] of m.l) roster.set(id, { name, bot, acc }); return;
       case 's': return onState(m);
       case 'dead':
         mode = 'dead';
         $('deadPlace').textContent = `#${m.place}`;
         $('deadKills').textContent = m.kills;
         $('deadBy').textContent = m.killer || m.cause;
+        $('deadRec').textContent = m.rec ? '✔ 이번 판 기록이 저장됐어요' : authEnabled ? '로그인하면 기록이 저장돼요' : '';
         $('dead').classList.remove('hidden');
         return;
       case 'end':
         ended = true;
-        showBanner(m.you ? '🏆 승리!' : m.winner ? `${m.winner} 우승` : '경기 종료', m.you ? '최후의 1인이 되었습니다!' : '잠시 후 다음 판이 시작됩니다', 6500);
+        showBanner(m.you ? '🏆 승리!' : m.winner ? `${m.winner} 우승` : '경기 종료', m.you ? '최후의 1인이 되었습니다!' + (m.rec ? ' (기록 저장됨)' : '') : '잠시 후 다음 판이 시작됩니다', 6500);
         return;
       case 'P': ping = Math.round(performance.now() - m.v); return;
     }
@@ -100,7 +177,7 @@
   function onInit(m) {
     myId = m.id;
     ended = false;
-    roster.clear(); for (const [id, name, bot] of m.roster) roster.set(id, { name, bot });
+    roster.clear(); for (const [id, name, bot, acc] of m.roster) roster.set(id, { name, bot, acc });
     const obs = new Map(), list = [];
     for (const [id, k, x, y, a, b, hp] of m.obs) {
       const kind = S.OBST_KINDS[k];
@@ -186,7 +263,7 @@
   // ---------------- 입력 ----------------
   const KEYMAP = { KeyW: S.KEY.UP, ArrowUp: S.KEY.UP, KeyS: S.KEY.DOWN, ArrowDown: S.KEY.DOWN, KeyA: S.KEY.LEFT, ArrowLeft: S.KEY.LEFT, KeyD: S.KEY.RIGHT, ArrowRight: S.KEY.RIGHT };
   window.addEventListener('keydown', (e) => {
-    if (document.activeElement === $('name')) return;
+    if (e.target && e.target.tagName === 'INPUT') return;
     if (KEYMAP[e.code]) { input.keys |= KEYMAP[e.code]; e.preventDefault(); return; }
     if (e.repeat) return;
     switch (e.code) {
@@ -446,7 +523,7 @@
       if (p.id === myId && me && mode === 'play') continue;
       drawPlayer(p.x, p.y, p.angle, p.weapon, p.helmet, p.vest, p.flags, p.id === specId && mode !== 'play');
       const r = roster.get(p.id);
-      if (r) { ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(r.name, p.x, p.y + S.PLAYER_R + 22); }
+      if (r) { ctx.fillStyle = r.acc ? 'rgba(255,226,140,0.95)' : 'rgba(255,255,255,0.85)'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(r.name, p.x, p.y + S.PLAYER_R + 22); }
     }
     if (me && mode === 'play') {
       const g = me.cur < 2 && me.g[me.cur] ? me.g[me.cur][0] : 'fists';
