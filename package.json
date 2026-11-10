@@ -1,0 +1,17 @@
+{
+  "name": "survive-2d",
+  "version": "0.1.0",
+  "description": "Surviv.io 스타일 2D 배틀로얄 (Node.js + WebSocket)",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.22.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

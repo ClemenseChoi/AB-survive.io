@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Survive 2D — 배틀그라운드</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #2b3a22; font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif; color: #fff; user-select: none; }
+  canvas { display: block; width: 100vw; height: 100vh; cursor: crosshair; }
+  .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(20, 28, 16, 0.55); }
+  .hidden { display: none !important; }
+  .panel { background: rgba(18, 22, 16, 0.88); border: 2px solid rgba(255, 255, 255, 0.12); border-radius: 14px; padding: 28px 32px; width: min(420px, 92vw); text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.4); }
+  h1 { margin: 0 0 4px; font-size: 40px; letter-spacing: 1px; color: #f3d36b; text-shadow: 0 3px 0 #7a5a12; }
+  .sub { opacity: .7; margin-bottom: 20px; font-size: 14px; }
+  input { width: 100%; padding: 12px 14px; font-size: 17px; border-radius: 8px; border: 2px solid #555; background: #111; color: #fff; outline: none; text-align: center; }
+  input:focus { border-color: #f3d36b; }
+  button { margin-top: 12px; width: 100%; padding: 13px; font-size: 18px; font-weight: 700; border: 0; border-radius: 8px; background: #5bbf3a; color: #fff; cursor: pointer; box-shadow: 0 4px 0 #2f7a1a; }
+  button:hover { filter: brightness(1.08); }
+  button:active { transform: translateY(2px); box-shadow: 0 2px 0 #2f7a1a; }
+  button.secondary { background: #4a5568; box-shadow: 0 4px 0 #2d3440; }
+  .keys { margin-top: 18px; font-size: 13px; line-height: 1.75; opacity: .8; text-align: left; }
+  kbd { background: #333; border: 1px solid #555; border-bottom-width: 3px; border-radius: 4px; padding: 0 6px; font-family: inherit; font-size: 12px; }
+  .status { margin-top: 12px; font-size: 13px; opacity: .65; }
+  .big { font-size: 44px; font-weight: 800; margin: 6px 0; }
+  .gold { color: #f3d36b; }
+  .stat { display: flex; justify-content: space-around; margin: 14px 0; font-size: 15px; }
+  .stat b { display: block; font-size: 26px; }
+  #banner { position: fixed; top: 22%; left: 50%; transform: translateX(-50%); text-align: center; pointer-events: none; text-shadow: 0 3px 8px rgba(0,0,0,.6); }
+  #banner .big { font-size: 56px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="menu" class="overlay">
+  <div class="panel">
+    <h1>SURVIVE 2D</h1>
+    <div class="sub">최후의 1인이 될 때까지 살아남으세요</div>
+    <input id="name" maxlength="14" placeholder="닉네임" autocomplete="off">
+    <button id="play">게임 시작</button>
+    <div class="status" id="status">서버 확인 중…</div>
+    <div class="keys">
+      <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 이동 · <b>마우스</b> 조준/사격<br>
+      <kbd>F</kbd> 줍기(총 교체) · <kbd>R</kbd> 장전 · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> / 휠 무기 교체 · <kbd>Q</kbd> 이전 무기<br>
+      <kbd>7</kbd> 붕대 · <kbd>8</kbd> 구급상자 · <kbd>9</kbd> 에너지 음료 · <kbd>M</kbd> 소리 켜기/끄기<br>
+      탄약·회복템·방어구·스코프는 밟으면 자동으로 주워요.
+    </div>
+  </div>
+</div>
+
+<div id="dead" class="overlay hidden">
+  <div class="panel">
+    <div style="opacity:.75">탈락했습니다</div>
+    <div class="big" id="deadPlace">#10</div>
+    <div class="stat"><div><b id="deadKills">0</b>처치</div><div><b id="deadBy">-</b>사망 원인</div></div>
+    <button id="spectate">관전하기</button>
+    <div class="status">이번 판이 끝나면 자동으로 다음 판에 참가합니다.</div>
+  </div>
+</div>
+
+<div id="banner" class="hidden"><div class="big" id="bannerTitle"></div><div id="bannerSub"></div></div>
+
+<script src="shared.js"></script>
+<script src="client.js"></script>
+</body>
+</html>
